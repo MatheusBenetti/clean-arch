@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"github.com/MatheusBenetti/clean-architecture/internal/infra/grpc/pb"
+	"github.com/MatheusBenetti/clean-architecture/internal/infra/grpc/service"
 	"net"
 	"net/http"
 
@@ -11,8 +13,6 @@ import (
 	"github.com/MatheusBenetti/clean-architecture/configs"
 	"github.com/MatheusBenetti/clean-architecture/internal/event/handler"
 	"github.com/MatheusBenetti/clean-architecture/internal/infra/graph"
-	"github.com/MatheusBenetti/clean-architecture/internal/infra/grpc/pb"
-	"github.com/MatheusBenetti/clean-architecture/internal/infra/grpc/service"
 	"github.com/MatheusBenetti/clean-architecture/internal/infra/web/webserver"
 	"github.com/MatheusBenetti/clean-architecture/pkg/events"
 	"github.com/streadway/amqp"
@@ -38,21 +38,27 @@ func main() {
 	rabbitMQChannel := getRabbitMQChannel()
 
 	eventDispatcher := events.NewEventDispatcher()
+	eventDispatcherList := events.NewEventDispatcher()
 	eventDispatcher.Register("OrderCreated", &handler.OrderCreatedHandler{
+		RabbitMQChannel: rabbitMQChannel,
+	})
+	eventDispatcherList.Register("OrdersListed", &handler.OrderCreatedHandler{
 		RabbitMQChannel: rabbitMQChannel,
 	})
 
 	createOrderUseCase := NewCreateOrderUseCase(db, eventDispatcher)
+	listOrdersUseCase := NewListedOrderUseCase(db, eventDispatcherList)
 
 	webserver := webserver.NewWebServer(configs.WebServerPort)
 	webOrderHandler := NewWebOrderHandler(db, eventDispatcher)
 	webserver.AddHandler("/order", webOrderHandler.Create)
+	webserver.AddHandler("/orders", webOrderHandler.List)
 	fmt.Println("Starting web server on port", configs.WebServerPort)
 	go webserver.Start()
 
 	grpcServer := grpc.NewServer()
-	createOrderService := service.NewOrderService(*createOrderUseCase)
-	pb.RegisterOrderServiceServer(grpcServer, createOrderService)
+	orderService := service.NewOrderService(*createOrderUseCase, *listOrdersUseCase)
+	pb.RegisterOrderServiceServer(grpcServer, orderService)
 	reflection.Register(grpcServer)
 
 	fmt.Println("Starting gRPC server on port", configs.GRPCServerPort)
@@ -64,6 +70,7 @@ func main() {
 
 	srv := graphql_handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{
 		CreateOrderUseCase: *createOrderUseCase,
+		ListOrdersUseCase:  *listOrdersUseCase,
 	}}))
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	http.Handle("/query", srv)
