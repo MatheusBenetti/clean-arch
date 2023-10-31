@@ -2,15 +2,16 @@ version: '3'
 
 services:
   mysql:
-    image: mysql:5.7
+    image: mysql:5.7.16
     container_name: mysql
     restart: always
     environment:
+      MYSQL_USER: mysql
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: orders
       MYSQL_PASSWORD: root
     ports:
-      - "3306:3306"
+      - "3307:3307"
     volumes:
       - .docker/mysql:/var/lib/mysql
 
@@ -19,8 +20,8 @@ services:
     container_name: rabbitmq
     restart: always
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "5673:5673"
+      - "15673:15673"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
