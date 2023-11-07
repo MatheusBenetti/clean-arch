@@ -44,14 +44,14 @@ func (s *OrderService) ListOrders(ctx context.Context, in *pb.ListOrdersRequest)
 		return nil, err
 	}
 
-	var dto []usecase.ListOrdersOutputDTO
+	var orders []*pb.CreateOrderResponse
 	for _, order := range output {
-		dto = append(dto, usecase.ListOrdersOutputDTO{
-			ID:         order.ID,
-			Price:      order.Price,
-			Tax:        order.Tax,
-			FinalPrice: order.FinalPrice,
+		orders = append(orders, &pb.CreateOrderResponse{
+			Id:         order.ID,
+			Price:      float32(order.Price),
+			Tax:        float32(order.Tax),
+			FinalPrice: float32(order.FinalPrice),
 		})
 	}
-	return &pb.ListOrdersResponse{}, nil
+	return &pb.ListOrdersResponse{Orders: orders}, nil
 }
